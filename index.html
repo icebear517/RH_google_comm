@@ -233,7 +233,7 @@
         return url;
     }
 
-    // 隨機產生頭像背景色 (避開太刺眼的顏色)
+    // 隨機產生頭像背景色
     function getAvatarColor(name) {
         const colors = ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#ffb74d', '#ff8a65'];
         let hash = 0;
@@ -244,19 +244,33 @@
         return colors[hash % colors.length];
     }
 
-    // 專門清理包含 {"en": "..."} 與 \n 的文字
+    // 清理評論內容中的特殊字元與 JSON 格式
     function cleanReviewContent(text) {
         if (!text) return '';
         let cleaned = text.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
-        
-        // 移除 JSON 包裝格式 {"en": " 和 "}
         cleaned = cleaned.replace(/^{"en":\s*"/i, '');
         cleaned = cleaned.replace(/"}$/, '');
-        
-        // 處理換行符號 (將文字的 \n 或真實換行 轉為正常換行)
         cleaned = cleaned.replace(/\\n/g, '\n');
-        
         return cleaned;
+    }
+
+    // ★ 新增：日期格式化功能 (只保留 YYYY/MM/DD)
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        
+        // 嘗試將字串轉換為日期物件
+        const d = new Date(dateStr);
+        
+        // 如果 Javascript 能夠成功辨識這個日期
+        if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}/${mm}/${dd}`;
+        }
+        
+        // 備用方案：如果格式太奇怪，就用空白切開，只保留前面那段（把時間切掉），並把 - 換成 /
+        return dateStr.split(' ')[0].replace(/-/g, '/');
     }
 
     let allReviews = [];
@@ -275,11 +289,14 @@
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             
             if (row.length >= 6) {
+                // 讀取日期時，套用剛剛寫好的 formatDate 函數
+                const rawDate = (row[5] || '').replace(/^"|"$/g, '').trim();
+                
                 result.push({
                     author: (row[2] || '').replace(/^"|"$/g, '').trim(),
                     rating: parseInt(row[3]) || 0,
                     content: cleanReviewContent(row[4]),
-                    date: (row[5] || '').replace(/^"|"$/g, '').trim()
+                    date: formatDate(rawDate) 
                 });
             }
         }
