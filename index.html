@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google 評論查詢系統 - 卡里善之樹</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .search-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        input, select {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            flex: 1;
+            min-width: 200px;
+        }
+        .stats {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .review-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        .review-card:hover {
+            transform: translateY(-2px);
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .author {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .rating {
+            color: #f39c12;
+            letter-spacing: 2px;
+        }
+        .date {
+            font-size: 12px;
+            color: #999;
+        }
+        .content {
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Google 評論查詢系統</h1>
+        <p>即時掌握顧客回饋與建議</p>
+    </header>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="輸入關鍵字或作者姓名...">
+        <select id="ratingFilter">
+            <option value="all">所有評分</option>
+            <option value="5">5 顆星</option>
+            <option value="4">4 顆星</option>
+            <option value="3">3 顆星以下</option>
+        </select>
+    </div>
+
+    <div class="stats" id="stats">正在載入評論資料...</div>
+    <div id="results"></div>
+</div>
+
+<script>
+    // 請將下方的 URL 替換成您在 Google 試算表發佈的 CSV 連結
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/1e6x389r3Auq3yGQNSj0LTSKcRhPC3CuV1wtfFdl75TI/edit?usp=sharing';
+
+    let reviews = [];
+
+    // 解析 CSV 的簡易函式
+    function parseCSV(text) {
+        const lines = text.split('\n');
+        const headers = lines[0].split(',');
+        return lines.slice(1).map(line => {
+            const data = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // 處理包含逗號的文字內容
+            return {
+                author: data[2]?.replace(/"/g, ''),
+                rating: parseInt(data[3]),
+                content: data[4]?.replace(/"/g, ''),
+                date: data[5]?.replace(/"/g, '')
+            };
+        }).filter(r => r.author); // 過濾掉空行
+    }
+
+    // 渲染評論列表
+    function renderReviews(data) {
+        const resultsDiv = document.getElementById('results');
+        const statsDiv = document.getElementById('stats');
+        
+        if (data.length === 0) {
+            resultsDiv.innerHTML = '<div class="review-card">找不到符合的評論。</div>';
+            statsDiv.innerText = `找到 0 則評論`;
+            return;
+        }
+
+        statsDiv.innerText = `找到 ${data.length} 則評論`;
+        resultsDiv.innerHTML = data.map(r => `
+            <div class="review-card">
+                <div class="review-header">
+                    <span class="author">${r.author}</span>
+                    <span class="rating">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+                </div>
+                <div class="date">${r.date}</div>
+                <div class="content">${r.content}</div>
+            </div>
+        `).join('');
+    }
+
+    // 篩選邏輯
+    function filterData() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const ratingTerm = document.getElementById('ratingFilter').value;
+
+        const filtered = reviews.filter(r => {
+            const matchesSearch = r.content.toLowerCase().includes(searchTerm) || 
+                                  r.author.toLowerCase().includes(searchTerm);
+            const matchesRating = ratingTerm === 'all' || 
+                                  (ratingTerm === '3' ? r.rating <= 3 : r.rating == ratingTerm);
+            return matchesSearch && matchesRating;
+        });
+
+        renderReviews(filtered);
+    }
+
+    // 初始化：抓取資料
+    fetch(csvUrl)
+        .then(response => response.text())
+        .then(text => {
+            reviews = parseCSV(text);
+            renderReviews(reviews);
+            
+            document.getElementById('searchInput').addEventListener('input', filterData);
+            document.getElementById('ratingFilter').addEventListener('change', filterData);
+        })
+        .catch(err => {
+            document.getElementById('results').innerHTML = '資料載入失敗，請檢查 CSV 連結是否正確。';
+            console.error(err);
+        });
+</script>
+
+</body>
+</html>
+
