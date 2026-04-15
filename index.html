@@ -8,144 +8,59 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
     <style>
         :root {
-            --primary-color: #4a90e2;
-            --bg-color: #f0f2f5;
+            /* 淡粉系主題色 (馬卡龍色調，確保白色背景上清晰) */
+            --pastel-red: #E57373;
+            --pastel-orange: #FFB74D;
+            --pastel-yellow: #FBC02D; /* 微調偏深一點的黃，避免太亮看不見 */
+            --pastel-green: #81C784;
+            --pastel-blue: #64B5F6;
+            --pastel-purple: #BA68C8;
+            
+            --bg-color: #F9FAFB;
             --card-bg: #ffffff;
-            --text-main: #1c1e21;
-            --text-muted: #65676b;
-            --star-color: #fbbc04;
-            --star-empty: #e0e0e0;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --star-color: #FBC02D;
+            --star-empty: #e2e8f0;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 20px;
-            color: var(--text-main);
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 5px;
-        }
-        header p {
-            color: var(--text-muted);
-            margin-top: 0;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: var(--text-main); }
+        .container { max-width: 900px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { color: #2d3748; margin-bottom: 5px; letter-spacing: 1px; }
+        header p { color: var(--text-muted); margin-top: 0; }
 
-        /* 頁籤導覽列 */
-        .tabs {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 10px;
-        }
-        .tab-btn {
-            background: none;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            color: var(--text-muted);
-            cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-        .tab-btn:hover {
-            background: #e4e6e9;
-        }
-        .tab-btn.active {
-            background: var(--primary-color);
-            color: white;
-        }
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        /* 頁籤導覽列 (純色切換) */
+        .tabs { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; }
+        .tab-btn { background: none; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+        .tab-btn:hover { background: #edf2f7; }
         
-        /* 搜尋區塊 */
-        .controls-wrapper {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom: 25px;
-        }
-        .search-box {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-        input, select {
-            padding: 12px 16px;
-            border: 1px solid #ccd0d5;
-            border-radius: 8px;
-            font-size: 15px;
-            flex: 1;
-            min-width: 200px;
-            outline: none;
-        }
-        input:focus, select:focus {
-            border-color: var(--primary-color);
-        }
-        .controls-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            color: var(--text-muted);
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
+        /* 頁籤的專屬粉系強調色 */
+        .tab-btn[data-target="tab-reviews"].active { background: var(--pastel-red); color: white; }
+        .tab-btn[data-target="tab-dashboard"].active { background: var(--pastel-blue); color: white; }
+        .tab-btn[data-target="tab-wordcloud"].active { background: var(--pastel-purple); color: white; }
 
-        /* 評論卡片 */
-        .review-card {
-            background: var(--card-bg);
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            margin-bottom: 20px;
-            position: relative;
-            overflow: hidden;
-        }
-        .review-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 4px;
-            background: linear-gradient(to right, #ff5e5e, #ffa73a, #ffe53a, #62e552, #4facfe, #8c52ff);
-            opacity: 0.8;
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .avatar {
-            width: 48px; height: 48px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 20px; font-weight: bold;
-            margin-right: 16px; flex-shrink: 0;
-        }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 搜尋與篩選區塊 */
+        .controls-wrapper { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 25px; }
+        .search-box { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+        input, select { padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; flex: 1; min-width: 180px; outline: none; transition: border-color 0.2s; color: var(--text-main); }
+        
+        /* 輸入框的粉系 Focus 狀態 */
+        input:focus { border-color: var(--pastel-red); }
+        select#ratingFilter:focus { border-color: var(--pastel-orange); }
+        select#timeRangeFilter:focus { border-color: var(--pastel-yellow); }
+        
+        .controls-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--text-muted); border-top: 1px solid #edf2f7; padding-top: 15px; }
+
+        /* 評論卡片 (移除漸層，改用純色飾條) */
+        .review-card { background: var(--card-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 20px; border-top: 5px solid #ccc; }
+        .card-header { display: flex; align-items: center; margin-bottom: 16px; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; font-weight: bold; margin-right: 16px; flex-shrink: 0; }
         .header-info { flex: 1; }
-        .author-name { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+        .author-name { font-weight: 600; font-size: 16px; margin-bottom: 4px; color: var(--text-main); }
         .meta-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .stars { color: var(--star-color); font-size: 16px; letter-spacing: 1px; }
         .stars-empty { color: var(--star-empty); }
@@ -153,67 +68,34 @@
         .content { font-size: 16px; line-height: 1.7; color: var(--text-main); white-space: pre-line; }
 
         /* 分頁 */
-        .pagination {
-            display: flex; justify-content: center; gap: 8px; margin-top: 30px; margin-bottom: 50px; flex-wrap: wrap;
-        }
-        .page-btn {
-            padding: 8px 16px; border: 1px solid #ccd0d5; background: #fff; cursor: pointer; border-radius: 8px; font-weight: 500;
-        }
-        .page-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-        .page-btn:disabled { background: #f5f6f7; color: #bcc0c4; cursor: not-allowed; }
+        .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 30px; margin-bottom: 50px; flex-wrap: wrap; }
+        .page-btn { padding: 8px 16px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; border-radius: 8px; font-weight: 500; color: var(--text-muted); transition: all 0.2s;}
+        .page-btn.active { background: var(--pastel-green); color: white; border-color: var(--pastel-green); }
+        .page-btn:disabled { background: #f7fafc; color: #cbd5e0; cursor: not-allowed; }
+
+        /* 智能摘要區塊 (淡紅背景) */
+        .ai-summary-card { background-color: #fffafb; border-left: 5px solid var(--pastel-red); padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .ai-title { font-size: 18px; font-weight: bold; color: var(--pastel-red); margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .ai-content { font-size: 16px; line-height: 1.8; color: #4a5568; white-space: pre-line; }
 
         /* 數據看板 Dashboard */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .dash-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            text-align: center;
-        }
-        .dash-title {
-            font-size: 16px;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-        }
-        .dash-value {
-            font-size: 42px;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-        .dash-stars {
-            color: var(--star-color);
-            font-size: 24px;
-            margin-top: 5px;
-        }
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-            margin-top: 15px;
-        }
-
-        /* 畫布型文字雲 */
-        .wordcloud-wrapper {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #fafafa;
-        }
-        #wordCloudCanvas {
-            max-width: 100%;
-            border-radius: 8px;
-        }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .dash-card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); text-align: center; border-top: 4px solid #ccc; }
         
+        .dash-card.total-card { border-top-color: var(--pastel-orange); }
+        .dash-card.total-card .dash-value { color: var(--pastel-orange); }
+        
+        .dash-card.avg-card { border-top-color: var(--pastel-yellow); }
+        .dash-card.avg-card .dash-value { color: var(--pastel-yellow); }
+
+        .dash-title { font-size: 16px; color: var(--text-muted); margin-bottom: 10px; font-weight: bold;}
+        .dash-value { font-size: 42px; font-weight: bold; }
+        .dash-stars { color: var(--star-color); font-size: 24px; margin-top: 5px; }
+        .chart-container { position: relative; height: 300px; width: 100%; margin-top: 15px; }
+
+        /* 文字雲 */
+        .wordcloud-wrapper { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; justify-content: center; align-items: center; background-color: #fafafa; border-top: 5px solid var(--pastel-purple);}
+        #wordCloudCanvas { max-width: 100%; border-radius: 8px; }
         #loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 16px; }
     </style>
 </head>
@@ -226,19 +108,25 @@
     </header>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('tab-reviews')">📝 評論列表</button>
-        <button class="tab-btn" onclick="switchTab('tab-dashboard')">📊 數據看板</button>
-        <button class="tab-btn" onclick="switchTab('tab-wordcloud')">☁️ 文字雲</button>
+        <button class="tab-btn active" data-target="tab-reviews" onclick="switchTab('tab-reviews', this)">📝 評論列表</button>
+        <button class="tab-btn" data-target="tab-dashboard" onclick="switchTab('tab-dashboard', this)">📊 數據看板與摘要</button>
+        <button class="tab-btn" data-target="tab-wordcloud" onclick="switchTab('tab-wordcloud', this)">☁️ 文字雲</button>
     </div>
 
     <div class="controls-wrapper" id="filter-wrapper">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="搜尋評論內容或顧客姓名...">
+            <input type="text" id="searchInput" placeholder="搜尋關鍵字...">
             <select id="ratingFilter">
                 <option value="all">所有星級</option>
                 <option value="5">⭐⭐⭐⭐⭐ 5 星</option>
                 <option value="4">⭐⭐⭐⭐ 4 星</option>
                 <option value="3">⭐⭐⭐ 3 星以下</option>
+            </select>
+            <select id="timeRangeFilter">
+                <option value="all">全部時間</option>
+                <option value="1">近 1 年</option>
+                <option value="2">近 2 年</option>
+                <option value="3">近 3 年</option>
             </select>
         </div>
         <div class="controls-row">
@@ -262,25 +150,30 @@
     </div>
 
     <div id="tab-dashboard" class="tab-content">
+        <div class="ai-summary-card">
+            <div class="ai-title">✨ 區間智能洞察報告</div>
+            <div class="ai-content" id="ai-summary-content">正在分析數據中...</div>
+        </div>
+
         <div class="dashboard-grid">
-            <div class="dash-card">
-                <div class="dash-title">篩選後總評論數</div>
+            <div class="dash-card total-card">
+                <div class="dash-title">期間總評論數</div>
                 <div class="dash-value" id="dash-total">0</div>
-                <div class="dash-title" style="margin-top:5px;">則</div>
+                <div class="dash-title" style="margin-top:5px; font-weight:normal;">則</div>
             </div>
-            <div class="dash-card">
-                <div class="dash-title">平均星級</div>
+            <div class="dash-card avg-card">
+                <div class="dash-title">期間平均星級</div>
                 <div class="dash-value" id="dash-avg">0.0</div>
                 <div class="dash-stars" id="dash-avg-stars"></div>
             </div>
         </div>
         <div class="dashboard-grid">
-            <div class="dash-card">
+            <div class="dash-card" style="border-top-color: var(--pastel-green);">
                 <div class="dash-title">星級分佈圖</div>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
-            <div class="dash-card">
-                <div class="dash-title">每月評論數趨勢</div>
+            <div class="dash-card" style="border-top-color: var(--pastel-purple);">
+                <div class="dash-title">新增評論趨勢</div>
                 <div class="chart-container"><canvas id="lineChart"></canvas></div>
             </div>
         </div>
@@ -299,46 +192,37 @@
     let chartInstanceBar = null;
     let chartInstanceLine = null;
 
+    // 定義六種淡粉系主題色
+    const pastelColors = ['#E57373', '#FFB74D', '#FBC02D', '#81C784', '#64B5F6', '#BA68C8']; 
+
     function getCsvUrl(url) {
         const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        if (match && match[1]) {
-            return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
-        }
+        if (match && match[1]) return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
         return url;
     }
 
-    window.switchTab = function(tabId) {
+    window.switchTab = function(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         
         document.getElementById(tabId).classList.add('active');
-        event.currentTarget.classList.add('active');
-
+        btn.classList.add('active');
         document.getElementById('pagination-controls').style.display = (tabId === 'tab-reviews') ? 'block' : 'none';
 
-        if (tabId === 'tab-wordcloud') {
-            // 延遲一點點確保畫布已正確顯示，再進行繪製
-            setTimeout(renderWordCloud, 100);
-        }
+        if (tabId === 'tab-wordcloud') setTimeout(renderWordCloud, 100);
     };
 
     function getAvatarColor(name) {
-        const colors = ['#e57373', '#f06292', '#ba68c8', '#9575cd', '#7986cb', '#64b5f6', '#4fc3f7', '#4dd0e1', '#4db6ac', '#81c784', '#aed581', '#ffb74d', '#ff8a65'];
         let hash = 0;
-        for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); }
-        return colors[Math.abs(hash) % colors.length];
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        return pastelColors[Math.abs(hash) % pastelColors.length];
     }
 
     function cleanReviewContent(text) {
         if (!text) return '';
         let cleaned = text.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
-        cleaned = cleaned.replace(/^{"en":\s*"/i, '');
-        cleaned = cleaned.replace(/"}$/, '');
-        cleaned = cleaned.replace(/\\n/g, '\n');
-        
-        if (cleaned === '{}' || cleaned === '{ }' || cleaned.trim() === '') {
-            return '';
-        }
+        cleaned = cleaned.replace(/^{"en":\s*"/i, '').replace(/"}$/, '').replace(/\\n/g, '\n');
+        if (cleaned === '{}' || cleaned === '{ }' || cleaned.trim() === '') return '';
         return cleaned;
     }
 
@@ -346,10 +230,7 @@
         if (!dateStr) return '';
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}/${mm}/${dd}`;
+            return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
         }
         return dateStr.split(' ')[0].replace(/-/g, '/');
     }
@@ -369,13 +250,11 @@
             if (row.length >= 6) {
                 const cleanedContent = cleanReviewContent(row[4]);
                 if (!cleanedContent) continue;
-
-                const rawDate = (row[5] || '').replace(/^"|"$/g, '').trim();
                 result.push({
                     author: (row[2] || '').replace(/^"|"$/g, '').trim(),
                     rating: parseInt(row[3]) || 0,
                     content: cleanedContent,
-                    date: formatDate(rawDate) 
+                    date: formatDate((row[5] || '').replace(/^"|"$/g, '').trim()) 
                 });
             }
         }
@@ -385,40 +264,37 @@
     function renderAll() {
         renderList();
         renderDashboard();
-        if (document.getElementById('tab-wordcloud').classList.contains('active')) {
-            renderWordCloud();
-        }
+        generateSmartSummary(); 
+        if (document.getElementById('tab-wordcloud').classList.contains('active')) renderWordCloud();
         document.getElementById('stats').innerText = `目前篩選出 ${filteredReviews.length} 則評論`;
     }
 
     function renderList() {
         const resultsDiv = document.getElementById('results');
         const paginationDiv = document.getElementById('pagination');
-        
         if (filteredReviews.length === 0) {
-            resultsDiv.innerHTML = '<div class="review-card" style="text-align:center; padding: 40px;">找不到符合條件的評論。</div>';
+            resultsDiv.innerHTML = '<div class="review-card" style="text-align:center; padding: 40px; border-top-color:#ccc;">找不到符合條件的評論。</div>';
             paginationDiv.innerHTML = '';
             return;
         }
-
         const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
         if (currentPage > totalPages) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
 
         const currentData = filteredReviews.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-        resultsDiv.innerHTML = currentData.map(r => {
+        
+        resultsDiv.innerHTML = currentData.map((r, index) => {
             const initial = r.author.charAt(0).toUpperCase();
-            const activeStars = '★'.repeat(r.rating);
-            const emptyStars = '★'.repeat(5 - r.rating);
+            // 循環分配六種顏色做為卡片頂部邊框
+            const borderColor = pastelColors[index % pastelColors.length];
             return `
-            <div class="review-card">
+            <div class="review-card" style="border-top-color: ${borderColor};">
                 <div class="card-header">
                     <div class="avatar" style="background-color: ${getAvatarColor(r.author)}">${initial}</div>
                     <div class="header-info">
                         <div class="author-name">${r.author}</div>
                         <div class="meta-row">
-                            <span class="stars">${activeStars}<span class="stars-empty">${emptyStars}</span></span>
+                            <span class="stars">${'★'.repeat(r.rating)}<span class="stars-empty">${'★'.repeat(5 - r.rating)}</span></span>
                             <span class="date">${r.date}</span>
                         </div>
                     </div>
@@ -426,28 +302,20 @@
                 <div class="content">${r.content}</div>
             </div>`;
         }).join('');
-
         renderPagination(totalPages);
     }
 
     function renderPagination(totalPages) {
         const paginationDiv = document.getElementById('pagination');
-        let html = '';
-        html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">上一頁</button>`;
+        let html = `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">上一頁</button>`;
         let startPage = Math.max(1, currentPage - 2);
         let endPage = Math.min(totalPages, currentPage + 2);
-        for (let i = startPage; i <= endPage; i++) {
-            html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
-        }
+        for (let i = startPage; i <= endPage; i++) html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
         html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">下一頁</button>`;
         paginationDiv.innerHTML = html;
     }
 
-    window.changePage = function(page) {
-        currentPage = page;
-        renderList();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    window.changePage = function(page) { currentPage = page; renderList(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
     function renderDashboard() {
         const total = filteredReviews.length;
@@ -461,12 +329,17 @@
         filteredReviews.forEach(r => { if(r.rating >= 1 && r.rating <= 5) ratingsCount[r.rating - 1]++; });
 
         if(chartInstanceBar) chartInstanceBar.destroy();
-        const ctxBar = document.getElementById('barChart').getContext('2d');
-        chartInstanceBar = new Chart(ctxBar, {
+        chartInstanceBar = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: {
-                labels: ['1星', '2星', '3星', '4星', '5星'],
-                datasets: [{ label: '評論數量', data: ratingsCount, backgroundColor: ['#ff5e5e', '#ffa73a', '#ffe53a', '#81c784', '#4facfe'], borderRadius: 5 }]
+            data: { 
+                labels: ['1星', '2星', '3星', '4星', '5星'], 
+                datasets: [{ 
+                    label: '評論數', 
+                    data: ratingsCount, 
+                    // 長條圖依序套用 紅、橙、黃、綠、藍
+                    backgroundColor: [pastelColors[0], pastelColors[1], pastelColors[2], pastelColors[3], pastelColors[4]], 
+                    borderRadius: 6 
+                }] 
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
@@ -479,147 +352,138 @@
             }
         });
         const sortedMonths = Object.keys(trendMap).sort();
-        const trendData = sortedMonths.map(m => trendMap[m]);
-
         if(chartInstanceLine) chartInstanceLine.destroy();
-        const ctxLine = document.getElementById('lineChart').getContext('2d');
-        chartInstanceLine = new Chart(ctxLine, {
+        chartInstanceLine = new Chart(document.getElementById('lineChart').getContext('2d'), {
             type: 'line',
-            data: {
-                labels: sortedMonths,
-                datasets: [{ label: '新增評論數', data: trendData, borderColor: '#8c52ff', backgroundColor: 'rgba(140, 82, 255, 0.1)', tension: 0.3, fill: true }]
+            data: { 
+                labels: sortedMonths, 
+                datasets: [{ 
+                    label: '新增評論數', 
+                    data: sortedMonths.map(m => trendMap[m]), 
+                    borderColor: pastelColors[5], // 折線圖使用淡紫色
+                    backgroundColor: 'rgba(186, 104, 200, 0.15)', // 紫色帶透明度
+                    borderWidth: 3,
+                    tension: 0.3, 
+                    fill: true 
+                }] 
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    // ★ 全新智慧型文字雲渲染引擎 (修正碎片化問題)
-    function renderWordCloud() {
-        if(filteredReviews.length === 0) return;
+    function generateSmartSummary() {
+        const container = document.getElementById('ai-summary-content');
+        if (filteredReviews.length === 0) {
+            container.innerHTML = "目前沒有足夠的數據可供分析。請嘗試放寬篩選條件。";
+            return;
+        }
 
-        // 擴充停用詞庫：徹底排除無意義的連接詞與代名詞
-        const stopWords = new Set([
-            '的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','啊','喔','呢','吧','嗎','就是','一下','一些','一點','所以','如果','他們','什麼','地方','不錯','一樣','應該','沒有','起來','發現'
-        ]);
+        const total = filteredReviews.length;
+        const avg = (filteredReviews.reduce((sum, r) => sum + r.rating, 0) / total).toFixed(1);
+        const highRatings = filteredReviews.filter(r => r.rating >= 4).length;
+        const satisfactionRate = Math.round((highRatings / total) * 100);
 
-        // ★ 品牌詞典：保護這些重要詞彙不被切碎
-        const customDict = ['卡里善之樹', '為愛撐傘', '品牌行動看板', '概念館', '彩繪牆', '裝置藝術', '停車場', '北極宮', '彩虹屋'];
+        let timeText = "在所有紀錄中";
+        const timeVal = document.getElementById('timeRangeFilter').value;
+        if (timeVal === '1') timeText = "在近 1 年內";
+        if (timeVal === '2') timeText = "在近 2 年內";
+        if (timeVal === '3') timeText = "在近 3 年內";
 
+        const stopWords = new Set(['的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','因為','不過','雖然','但是','其實','看到','這樣','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','什麼','地方','不錯']);
+        const customDict = ['卡里善之樹', '為愛撐傘', '概念館', '彩繪牆', '裝置藝術', '停車場', '北極宮'];
+        let wordCounts = {};
+        
+        filteredReviews.forEach(r => {
+            let text = r.content.replace(/[^\u4e00-\u9fa5]/g, ' ');
+            customDict.forEach(dictWord => { if(text.includes(dictWord)) wordCounts[dictWord] = (wordCounts[dictWord] || 0) + 1; });
+            for(let i=0; i < text.length - 1; i++) {
+                let biGram = text.substring(i, i+2);
+                if(!stopWords.has(biGram) && biGram.trim().length === 2) wordCounts[biGram] = (wordCounts[biGram] || 0) + 1;
+            }
+        });
+        
+        let topWords = Object.entries(wordCounts).sort((a,b) => b[1] - a[1]).slice(0, 3).map(w => w[0]);
+
+        let report = `根據數據顯示，${timeText}，卡里善之樹共累積了 **${total} 則評論**，顧客的整體滿意度達到 **${satisfactionRate}%**（平均星數 ${avg} 星）。\n\n`;
+        if (topWords.length > 0) report += `在評論內容中，顧客最常給予正面回饋或提及的亮點包含：「**${topWords.join('」、「')}**」。\n\n`;
+
+        if (avg >= 4.5) report += `總結來說，品牌在結合在地產業與社區藝術的發展上，獲得了極高的肯定。建議可延續目前的服務品質，並持續運用社群宣傳特色體驗活動。`;
+        else if (avg >= 4.0) report += `總體表現相當優良，多數訪客均留下良好印象。若能從 3 星以下的評論中萃取建議並進行微調，將能帶來更完美的參訪體驗。`;
+        else report += `在星級表現上仍有成長空間。建議小編與團隊可以針對評論中提到的特定問題（例如動線或設施）進行內部討論與優化。`;
+
+        container.innerHTML = report.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--pastel-red); font-size:1.1em;">$1</strong>');
+    }
+
+    function getWordCloudData() {
+        const stopWords = new Set(['的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','啊','喔','呢','吧','嗎','就是','一下','一些','一點','所以','如果','他們','什麼','地方','不錯','一樣','應該','沒有','起來','發現']);
+        const customDict = ['卡里善之樹', '為愛撐傘', '概念館', '彩繪牆', '裝置藝術', '停車場', '北極宮'];
         let counts = {};
-
-        // 1. 文字擷取與長度分析 (2~5個字)
         filteredReviews.forEach(r => {
             let text = r.content.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ' '); 
             let segments = text.split(/\s+/);
-            
             segments.forEach(seg => {
-                // 先比對自訂詞典，確保重要品牌詞優先被記錄
-                customDict.forEach(dictWord => {
-                    if (seg.includes(dictWord)) {
-                        counts[dictWord] = (counts[dictWord] || 0) + 2; // 給予品牌詞較高初始權重
-                    }
-                });
-
-                // 產生 2 到 5 字的所有可能詞彙
+                customDict.forEach(dictWord => { if (seg.includes(dictWord)) counts[dictWord] = (counts[dictWord] || 0) + 2; });
                 for (let len = 5; len >= 2; len--) {
                     for (let i = 0; i <= seg.length - len; i++) {
                         let word = seg.substring(i, i + len);
-                        if (!stopWords.has(word)) {
-                            counts[word] = (counts[word] || 0) + 1;
-                        }
+                        if (!stopWords.has(word)) counts[word] = (counts[word] || 0) + 1;
                     }
                 }
             });
         });
-
-        // 2. 智慧子字串過濾 (Substring Pruning)
-        // 依照文字長度由長到短排序
         let words = Object.keys(counts).sort((a, b) => b.length - a.length);
-
         for (let i = 0; i < words.length; i++) {
             let longerWord = words[i];
-            
-            // 忽略只出現 1 次的長詞雜訊
-            if (counts[longerWord] < 2) {
-                delete counts[longerWord]; 
-                continue;
-            }
-
-            // 尋找是否包含較短的詞 (例如: 找到「卡里善」，發現它包含在「卡里善之樹」裡)
+            if (counts[longerWord] < 2) { delete counts[longerWord]; continue; }
             for (let j = i + 1; j < words.length; j++) {
                 let shorterWord = words[j];
                 if (counts[shorterWord] > 0 && longerWord.includes(shorterWord)) {
-                    // 如果短詞出現的頻率沒有比長詞多出很多，代表它只是碎片，直接刪除
-                    if (counts[longerWord] >= counts[shorterWord] * 0.4) {
-                        counts[shorterWord] = 0;
-                    } else {
-                        // 否則，扣除它與長詞重疊的次數
-                        counts[shorterWord] -= counts[longerWord];
-                    }
+                    if (counts[longerWord] >= counts[shorterWord] * 0.4) counts[shorterWord] = 0;
+                    else counts[shorterWord] -= counts[longerWord];
                 }
             }
         }
-
-        // 3. 整理最終結果並過濾無效資料
         let finalWords = [];
-        for (let word in counts) {
-            // 過濾掉次數歸零的碎片，以及首尾是停用詞的錯誤詞彙 (例如: "的雨傘")
-            if (counts[word] >= 2 && !stopWords.has(word[0]) && !stopWords.has(word[word.length-1])) {
-                finalWords.push([word, counts[word]]);
-            }
-        }
+        for (let word in counts) if (counts[word] >= 2 && !stopWords.has(word[0]) && !stopWords.has(word[word.length-1])) finalWords.push([word, counts[word]]);
+        return finalWords.sort((a, b) => b[1] - a[1]).slice(0, 60);
+    }
 
-        // 依據出現次數排序，只取前 60 名
-        finalWords.sort((a, b) => b[1] - a[1]);
-        let topWords = finalWords.slice(0, 60);
-
+    function renderWordCloud() {
+        let topWords = getWordCloudData();
         if (topWords.length === 0) return;
-
-        // ★ 4. 權重與字體大小映射 (提昇視覺對比度)
         const maxWeight = topWords[0][1];
         const minWeight = topWords[topWords.length - 1][1];
+        let cloudList = topWords.map(item => [item[0], minWeight === maxWeight ? 40 : 15 + ((item[1] - minWeight) / (maxWeight - minWeight)) * 65]);
 
-        let cloudList = topWords.map(item => {
-            let word = item[0];
-            let weight = item[1];
-            
-            // 公式：最常出現的字最大可以到 80px，最少的維持 15px
-            let calculatedSize = minWeight === maxWeight
-                ? 40
-                : 15 + ((weight - minWeight) / (maxWeight - minWeight)) * 65;
-            
-            return [word, calculatedSize];
-        });
-
-        // 5. 執行真實文字雲繪製
-        const canvas = document.getElementById('wordCloudCanvas');
-        WordCloud(canvas, {
-            list: cloudList,
-            fontFamily: '"PingFang TC", "Microsoft JhengHei", sans-serif',
+        WordCloud(document.getElementById('wordCloudCanvas'), {
+            list: cloudList, 
+            fontFamily: '"PingFang TC", "Microsoft JhengHei", sans-serif', 
             fontWeight: 'bold',
-            color: function() {
-                // 卡里善品牌彩虹色系
-                const colors = ['#ff5e5e', '#ffa73a', '#fbbc04', '#62e552', '#4facfe', '#8c52ff', '#f06292', '#ba68c8', '#4db6ac'];
-                return colors[Math.floor(Math.random() * colors.length)];
-            },
-            rotateRatio: 0.3,   // 有 30% 的字會轉為垂直，看起來更專業
-            rotationSteps: 2,
-            backgroundColor: 'transparent',
-            shape: 'circle',
-            gridSize: Math.round(12 * document.getElementById('wordcloud-container').offsetWidth / 800), // 自動適應縮放
-            drawOutOfBound: false,
-            shrinkToFit: true
+            // 從六種淡粉色系中隨機挑選顏色給文字
+            color: () => pastelColors[Math.floor(Math.random() * pastelColors.length)],
+            rotateRatio: 0.3, rotationSteps: 2, backgroundColor: 'transparent', shape: 'circle',
+            gridSize: Math.round(12 * document.getElementById('wordcloud-container').offsetWidth / 800), drawOutOfBound: false, shrinkToFit: true
         });
     }
 
     function applyFilters() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         const ratingTerm = document.getElementById('ratingFilter').value;
+        const timeTerm = document.getElementById('timeRangeFilter').value;
+        
+        const now = new Date();
+        const cutoffDate = new Date();
+        if (timeTerm !== 'all') cutoffDate.setFullYear(now.getFullYear() - parseInt(timeTerm));
 
         filteredReviews = allReviews.filter(r => {
             const matchesSearch = r.content.toLowerCase().includes(searchTerm) || r.author.toLowerCase().includes(searchTerm);
             const matchesRating = ratingTerm === 'all' || (ratingTerm === '3' ? r.rating <= 3 : r.rating == ratingTerm);
-            return matchesSearch && matchesRating;
+            let matchesTime = true;
+            if (timeTerm !== 'all' && r.date) {
+                const rDate = new Date(r.date);
+                matchesTime = rDate >= cutoffDate;
+            }
+            return matchesSearch && matchesRating && matchesTime;
         });
 
         currentPage = 1;
@@ -628,24 +492,16 @@
 
     document.getElementById('searchInput').addEventListener('input', applyFilters);
     document.getElementById('ratingFilter').addEventListener('change', applyFilters);
-    document.getElementById('pageSize').addEventListener('change', (e) => {
-        itemsPerPage = parseInt(e.target.value);
-        currentPage = 1;
-        renderList();
-    });
+    document.getElementById('timeRangeFilter').addEventListener('change', applyFilters);
+    document.getElementById('pageSize').addEventListener('change', (e) => { itemsPerPage = parseInt(e.target.value); currentPage = 1; renderList(); });
 
     const fetchUrl = getCsvUrl(rawUrl);
-    fetch(fetchUrl)
-        .then(response => { if (!response.ok) throw new Error('網路回應錯誤'); return response.text(); })
-        .then(text => {
-            document.getElementById('loading').style.display = 'none';
-            allReviews = parseCSV(text);
-            filteredReviews = [...allReviews];
-            renderAll();
-        })
-        .catch(err => {
-            document.getElementById('loading').innerHTML = '<span style="color:red;">資料載入失敗，請確認試算表權限。</span>';
-        });
+    fetch(fetchUrl).then(res => res.text()).then(text => {
+        document.getElementById('loading').style.display = 'none';
+        allReviews = parseCSV(text);
+        filteredReviews = [...allReviews];
+        renderAll();
+    });
 </script>
 
 </body>
