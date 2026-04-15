@@ -162,10 +162,8 @@
 </div>
 
 <script>
-    // 這裡直接放您提供的 Google 試算表連結
     const rawUrl = 'https://docs.google.com/spreadsheets/d/1e6x389r3Auq3yGQNSj0LTSKcRhPC3CuV1wtfFdl75TI/edit?usp=sharing';
 
-    // 自動將一般連結轉換為 CSV 下載連結
     function getCsvUrl(url) {
         const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
         if (match && match[1]) {
@@ -174,12 +172,11 @@
         return url;
     }
 
-    let allReviews = [];      // 儲存所有資料
-    let filteredReviews = []; // 儲存篩選後的資料
-    let currentPage = 1;      // 目前頁碼
-    let itemsPerPage = 10;    // 每頁筆數
+    let allReviews = [];
+    let filteredReviews = [];
+    let currentPage = 1;
+    let itemsPerPage = 10;
 
-    // 解析 CSV，處理包含逗號與換行的複雜內容
     function parseCSV(text) {
         const lines = text.split(/\r?\n/);
         const result = [];
@@ -188,7 +185,6 @@
             const line = lines[i];
             if (!line.trim()) continue;
             
-            // 正則表達式：正確切割 CSV 欄位（忽略引號內的逗號）
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             
             if (row.length >= 6) {
@@ -200,17 +196,14 @@
                 });
             }
         }
-        // 過濾掉沒有作者或評分的無效資料
         return result.filter(r => r.author && r.rating);
     }
 
-    // 渲染畫面（包含列表與分頁）
     function render() {
         const resultsDiv = document.getElementById('results');
         const statsDiv = document.getElementById('stats');
         const paginationDiv = document.getElementById('pagination');
         
-        // 更新統計
         statsDiv.innerText = `共找到 ${filteredReviews.length} 則評論`;
 
         if (filteredReviews.length === 0) {
@@ -219,7 +212,6 @@
             return;
         }
 
-        // 計算分頁
         const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
         if (currentPage > totalPages) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
@@ -228,7 +220,6 @@
         const endIndex = startIndex + itemsPerPage;
         const currentData = filteredReviews.slice(startIndex, endIndex);
 
-        // 渲染評論列表
         resultsDiv.innerHTML = currentData.map(r => `
             <div class="review-card">
                 <div class="review-header">
@@ -240,7 +231,6 @@
             </div>
         `).join('');
 
-        // 渲染分頁按鈕
         renderPagination(totalPages);
     }
 
@@ -248,10 +238,8 @@
         const paginationDiv = document.getElementById('pagination');
         let html = '';
 
-        // 上一頁按鈕
         html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">上一頁</button>`;
 
-        // 頁碼按鈕 (最多顯示前後各2頁)
         let startPage = Math.max(1, currentPage - 2);
         let endPage = Math.min(totalPages, currentPage + 2);
 
@@ -269,21 +257,17 @@
             html += `<button class="page-btn" onclick="changePage(${totalPages})">${totalPages}</button>`;
         }
 
-        // 下一頁按鈕
         html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">下一頁</button>`;
 
         paginationDiv.innerHTML = html;
     }
 
-    // 變更頁碼
     window.changePage = function(page) {
         currentPage = page;
         render();
-        // 點擊分頁後捲動回最上方
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // 篩選邏輯
     function applyFilters() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         const ratingTerm = document.getElementById('ratingFilter').value;
@@ -296,11 +280,10 @@
             return matchesSearch && matchesRating;
         });
 
-        currentPage = 1; // 篩選後回到第一頁
+        currentPage = 1;
         render();
     }
 
-    // 綁定事件
     document.getElementById('searchInput').addEventListener('input', applyFilters);
     document.getElementById('ratingFilter').addEventListener('change', applyFilters);
     document.getElementById('pageSize').addEventListener('change', (e) => {
@@ -309,7 +292,6 @@
         render();
     });
 
-    // 初始化：載入資料
     const fetchUrl = getCsvUrl(rawUrl);
     
     fetch(fetchUrl)
