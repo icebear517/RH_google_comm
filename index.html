@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google 評論查詢系統 - 卡里善之樹</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -197,29 +198,22 @@
             margin-top: 15px;
         }
 
-        /* 文字雲 Word Cloud */
-        .wordcloud-card {
+        /* 畫布型文字雲 */
+        .wordcloud-wrapper {
             background: var(--card-bg);
-            padding: 30px;
+            padding: 20px;
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            min-height: 400px;
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
-            align-content: center;
-            gap: 15px;
-            text-align: center;
+            align-items: center;
+            overflow: hidden;
+            background-color: #fafafa;
         }
-        .wordcloud-card span {
-            display: inline-block;
-            font-weight: bold;
-            line-height: 1.2;
-            transition: transform 0.2s;
-            cursor: default;
-        }
-        .wordcloud-card span:hover {
-            transform: scale(1.1);
+        #wordCloudCanvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
         }
         
         #loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 16px; }
@@ -295,8 +289,9 @@
     </div>
 
     <div id="tab-wordcloud" class="tab-content">
-        <div class="wordcloud-card" id="wordcloud-content">
-            </div>
+        <div class="wordcloud-wrapper">
+            <canvas id="wordCloudCanvas" width="800" height="500"></canvas>
+        </div>
     </div>
 
 </div>
@@ -314,7 +309,6 @@
         return url;
     }
 
-    // 頁籤切換邏輯
     window.switchTab = function(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -322,8 +316,12 @@
         document.getElementById(tabId).classList.add('active');
         event.currentTarget.classList.add('active');
 
-        // 隱藏/顯示分頁控制 (只有列表需要分頁)
         document.getElementById('pagination-controls').style.display = (tabId === 'tab-reviews') ? 'block' : 'none';
+
+        // 如果切換到文字雲，需要延遲一點點繪製，確保畫布已經顯示在畫面上
+        if (tabId === 'tab-wordcloud') {
+            setTimeout(renderWordCloud, 100);
+        }
     };
 
     function getAvatarColor(name) {
@@ -339,6 +337,11 @@
         cleaned = cleaned.replace(/^{"en":\s*"/i, '');
         cleaned = cleaned.replace(/"}$/, '');
         cleaned = cleaned.replace(/\\n/g, '\n');
+        
+        // ★ 核心邏輯：如果清空後只剩下 {} 或 { }，回傳空字串，稍後會將其整筆刪除
+        if (cleaned === '{}' || cleaned === '{ }' || cleaned.trim() === '') {
+            return '';
+        }
         return cleaned;
     }
 
@@ -367,11 +370,16 @@
             if (!line.trim()) continue;
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (row.length >= 6) {
+                const cleanedContent = cleanReviewContent(row[4]);
+                
+                // ★ 如果這筆評論內容是空的或是 {}，就直接跳過不加入資料庫
+                if (!cleanedContent) continue;
+
                 const rawDate = (row[5] || '').replace(/^"|"$/g, '').trim();
                 result.push({
                     author: (row[2] || '').replace(/^"|"$/g, '').trim(),
                     rating: parseInt(row[3]) || 0,
-                    content: cleanReviewContent(row[4]),
+                    content: cleanedContent,
                     date: formatDate(rawDate) 
                 });
             }
@@ -379,15 +387,16 @@
         return result.filter(r => r.author && r.rating);
     }
 
-    // ★ 更新所有畫面 (列表、看板、文字雲)
     function renderAll() {
         renderList();
         renderDashboard();
-        renderWordCloud();
+        // 文字雲在切換頁籤時才繪製，以節省效能與確保比例正確
+        if (document.getElementById('tab-wordcloud').classList.contains('active')) {
+            renderWordCloud();
+        }
         document.getElementById('stats').innerText = `目前篩選出 ${filteredReviews.length} 則評論`;
     }
 
-    // 渲染評論列表
     function renderList() {
         const resultsDiv = document.getElementById('results');
         const paginationDiv = document.getElementById('pagination');
@@ -427,7 +436,6 @@
         renderPagination(totalPages);
     }
 
-    // 渲染分頁
     function renderPagination(totalPages) {
         const paginationDiv = document.getElementById('pagination');
         let html = '';
@@ -447,131 +455,120 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // 渲染數據看板 (Chart.js)
     function renderDashboard() {
         const total = filteredReviews.length;
         document.getElementById('dash-total').innerText = total;
-
         if (total === 0) return;
-
-        // 計算平均
         const avg = (filteredReviews.reduce((sum, r) => sum + r.rating, 0) / total).toFixed(1);
         document.getElementById('dash-avg').innerText = avg;
         document.getElementById('dash-avg-stars').innerText = '★'.repeat(Math.round(avg));
 
-        // 計算星級分佈
         const ratingsCount = [0, 0, 0, 0, 0];
         filteredReviews.forEach(r => { if(r.rating >= 1 && r.rating <= 5) ratingsCount[r.rating - 1]++; });
 
-        // 星級長條圖
         if(chartInstanceBar) chartInstanceBar.destroy();
         const ctxBar = document.getElementById('barChart').getContext('2d');
         chartInstanceBar = new Chart(ctxBar, {
             type: 'bar',
             data: {
                 labels: ['1星', '2星', '3星', '4星', '5星'],
-                datasets: [{
-                    label: '評論數量',
-                    data: ratingsCount,
-                    backgroundColor: ['#ff5e5e', '#ffa73a', '#ffe53a', '#81c784', '#4facfe'],
-                    borderRadius: 5
-                }]
+                datasets: [{ label: '評論數量', data: ratingsCount, backgroundColor: ['#ff5e5e', '#ffa73a', '#ffe53a', '#81c784', '#4facfe'], borderRadius: 5 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        // 計算每月趨勢 (YYYY/MM)
         const trendMap = {};
         filteredReviews.forEach(r => {
             if(r.date.length >= 7) {
-                const ym = r.date.substring(0, 7); // 取得 YYYY/MM
+                const ym = r.date.substring(0, 7);
                 trendMap[ym] = (trendMap[ym] || 0) + 1;
             }
         });
         const sortedMonths = Object.keys(trendMap).sort();
         const trendData = sortedMonths.map(m => trendMap[m]);
 
-        // 趨勢折線圖
         if(chartInstanceLine) chartInstanceLine.destroy();
         const ctxLine = document.getElementById('lineChart').getContext('2d');
         chartInstanceLine = new Chart(ctxLine, {
             type: 'line',
             data: {
                 labels: sortedMonths,
-                datasets: [{
-                    label: '每月新增評論數',
-                    data: trendData,
-                    borderColor: '#8c52ff',
-                    backgroundColor: 'rgba(140, 82, 255, 0.1)',
-                    tension: 0.3,
-                    fill: true
-                }]
+                datasets: [{ label: '新增評論數', data: trendData, borderColor: '#8c52ff', backgroundColor: 'rgba(140, 82, 255, 0.1)', tension: 0.3, fill: true }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    // 渲染文字雲
+    // ★ 全新專業級文字雲渲染引擎
     function renderWordCloud() {
-        const text = filteredReviews.map(r => r.content).join(' ');
-        const container = document.getElementById('wordcloud-content');
-        container.innerHTML = '';
+        if(filteredReviews.length === 0) return;
 
-        if(filteredReviews.length === 0) {
-            container.innerHTML = '<p style="color:#999; margin-top:50px;">沒有資料可產生文字雲</p>';
-            return;
-        }
+        // 建立超大型「不要的字」字典（停用詞），確保不會出現無意義的代名詞和語助詞
+        const stopWords = new Set([
+            '的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','啊','喔','呢','吧','嗎','就是','一下','一些','一點','所以','如果','他們','什麼','地方','不錯'
+        ]);
 
-        // 自訂的停用詞字典 (避免無意義的字出現在文字雲)
-        const stopWords = ['的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從'];
-        const wordCounts = {};
+        let wordCounts = {};
 
-        // 用標點符號切分短句
-        const segments = text.split(/[\s，。！？、；：()（）「」"']/);
-        segments.forEach(seg => {
-            seg = seg.trim();
-            // 只抓長度介於 2~5 個字，且不在停用詞內的片語
-            if (seg.length >= 2 && seg.length <= 5 && !stopWords.includes(seg)) {
-                wordCounts[seg] = (wordCounts[seg] || 0) + 2; 
+        // 解析評論內容，尋找有意義的「雙字」與「三字」詞
+        filteredReviews.forEach(r => {
+            // 只保留中文字進行分析，避免標點符號干擾
+            const text = r.content.replace(/[^\u4e00-\u9fa5]/g, ''); 
+            
+            for (let i = 0; i < text.length - 1; i++) {
+                // 抓取雙字詞 (如: 雨傘、彩繪)
+                const biGram = text.substring(i, i + 2);
+                if (!stopWords.has(biGram)) {
+                    wordCounts[biGram] = (wordCounts[biGram] || 0) + 1;
+                }
+                
+                // 抓取三字詞 (如: 小精靈、概念館)
+                if (i < text.length - 2) {
+                    const triGram = text.substring(i, i + 3);
+                    if (!stopWords.has(triGram)) {
+                        wordCounts[triGram] = (wordCounts[triGram] || 0) + 1.5; // 三字詞權重稍微加強
+                    }
+                }
             }
         });
 
-        // 彌補機制：抓取常見的雙字詞
-        const cleanText = text.replace(/[^\u4e00-\u9fa5]/g, '');
-        for (let i = 0; i < cleanText.length - 1; i++) {
-            const bigram = cleanText.substring(i, i + 2);
-            if (!stopWords.includes(bigram)) wordCounts[bigram] = (wordCounts[bigram] || 0) + 1;
-        }
-
-        // 取前 60 名出現最多次的詞
+        // 轉換為 WordCloud2 需要的陣列格式，並只取前 60 名最常出現的詞
         let sortedWords = Object.entries(wordCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 60);
 
+        // 如果資料太少，就不執行
         if (sortedWords.length === 0) return;
 
-        const maxCount = sortedWords[0][1];
-        const minCount = sortedWords[sortedWords.length - 1][1];
+        // 調整權重倍率，讓畫面上最大的字與最小的字有明顯落差
+        const maxWeight = sortedWords[0][1];
+        let cloudList = sortedWords.map(item => {
+            let word = item[0];
+            let weight = item[1];
+            // 基礎字體大小轉換公式
+            let calculatedSize = (weight / maxWeight) * 80 + 15; 
+            return [word, calculatedSize];
+        });
 
-        // 將陣列隨機打亂，讓排版看起來自然
-        sortedWords.sort(() => Math.random() - 0.5);
-        const colors = ['#e57373', '#f06292', '#ba68c8', '#7986cb', '#4fc3f7', '#4db6ac', '#81c784', '#ffb74d', '#ff8a65'];
-
-        sortedWords.forEach(([word, count]) => {
-            const span = document.createElement('span');
-            span.textContent = word;
-            // 依據出現頻率計算字體大小 (介於 16px ~ 50px)
-            let size = 16;
-            if (maxCount !== minCount) {
-                size = 16 + ((count - minCount) / (maxCount - minCount)) * 34;
-            }
-            span.style.fontSize = `${size}px`;
-            span.style.color = colors[Math.floor(Math.random() * colors.length)];
-            container.appendChild(span);
+        // 呼叫 WordCloud2.js 進行畫布渲染
+        WordCloud(document.getElementById('wordCloudCanvas'), {
+            list: cloudList,
+            fontFamily: '"PingFang TC", "Microsoft JhengHei", sans-serif',
+            fontWeight: 'bold',
+            color: function() {
+                // 卡里善專屬彩虹配色隨機選取
+                const colors = ['#ff5e5e', '#ffa73a', '#fbbc04', '#62e552', '#4facfe', '#8c52ff', '#f06292', '#ba68c8', '#4db6ac'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            },
+            rotateRatio: 0.3,   // 30% 的字會旋轉
+            rotationSteps: 2,   // 旋轉的角度種類 (水平與垂直)
+            backgroundColor: 'transparent',
+            shape: 'circle',    // 雲的形狀偏向圓形集中
+            gridSize: 8,        // 字與字之間的緊密度
+            drawOutOfBound: false
         });
     }
 
-    // 篩選邏輯
     function applyFilters() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         const ratingTerm = document.getElementById('ratingFilter').value;
@@ -586,7 +583,6 @@
         renderAll();
     }
 
-    // 綁定事件
     document.getElementById('searchInput').addEventListener('input', applyFilters);
     document.getElementById('ratingFilter').addEventListener('change', applyFilters);
     document.getElementById('pageSize').addEventListener('change', (e) => {
@@ -595,7 +591,6 @@
         renderList();
     });
 
-    // 載入資料
     const fetchUrl = getCsvUrl(rawUrl);
     fetch(fetchUrl)
         .then(response => { if (!response.ok) throw new Error('網路回應錯誤'); return response.text(); })
