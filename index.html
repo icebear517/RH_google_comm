@@ -43,10 +43,21 @@
             flex: 1;
             min-width: 200px;
         }
-        .stats {
-            margin-bottom: 10px;
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
             font-size: 14px;
             color: #666;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .page-size-select {
+            padding: 6px;
+            font-size: 14px;
+            min-width: auto;
+            width: auto;
         }
         .review-card {
             background: var(--card-bg);
@@ -54,19 +65,17 @@
             border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             margin-bottom: 15px;
-            transition: transform 0.2s;
-        }
-        .review-card:hover {
-            transform: translateY(-2px);
         }
         .review-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
+            align-items: center;
         }
         .author {
             font-weight: bold;
             color: var(--primary-color);
+            font-size: 1.1em;
         }
         .rating {
             color: #f39c12;
@@ -75,15 +84,44 @@
         .date {
             font-size: 12px;
             color: #999;
+            margin-bottom: 10px;
         }
         .content {
             line-height: 1.6;
             white-space: pre-line;
         }
-        .loading {
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 25px;
+            margin-bottom: 50px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .page-btn:hover:not(:disabled) {
+            background: #f0f0f0;
+        }
+        .page-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .page-btn:disabled {
+            background: #f5f5f5;
+            color: #ccc;
+            cursor: not-allowed;
+        }
+        #loading {
             text-align: center;
-            padding: 50px;
-            font-size: 18px;
+            padding: 40px;
             color: #666;
         }
     </style>
@@ -106,44 +144,92 @@
         </select>
     </div>
 
-    <div class="stats" id="stats">正在載入評論資料...</div>
+    <div class="controls-row">
+        <div id="stats">準備載入資料...</div>
+        <div>
+            每頁顯示：
+            <select id="pageSize" class="page-size-select">
+                <option value="10">10 筆</option>
+                <option value="20">20 筆</option>
+                <option value="50">50 筆</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="loading">正在從資料庫讀取評論，請稍候...</div>
     <div id="results"></div>
+    <div id="pagination" class="pagination"></div>
 </div>
 
 <script>
-    // 請將下方的 URL 替換成您在 Google 試算表發佈的 CSV 連結
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/1e6x389r3Auq3yGQNSj0LTSKcRhPC3CuV1wtfFdl75TI/edit?usp=sharing';
+    // 這裡直接放您提供的 Google 試算表連結
+    const rawUrl = 'https://docs.google.com/spreadsheets/d/1e6x389r3Auq3yGQNSj0LTSKcRhPC3CuV1wtfFdl75TI/edit?usp=sharing';
 
-    let reviews = [];
-
-    // 解析 CSV 的簡易函式
-    function parseCSV(text) {
-        const lines = text.split('\n');
-        const headers = lines[0].split(',');
-        return lines.slice(1).map(line => {
-            const data = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // 處理包含逗號的文字內容
-            return {
-                author: data[2]?.replace(/"/g, ''),
-                rating: parseInt(data[3]),
-                content: data[4]?.replace(/"/g, ''),
-                date: data[5]?.replace(/"/g, '')
-            };
-        }).filter(r => r.author); // 過濾掉空行
+    // 自動將一般連結轉換為 CSV 下載連結
+    function getCsvUrl(url) {
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match && match[1]) {
+            return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
+        }
+        return url;
     }
 
-    // 渲染評論列表
-    function renderReviews(data) {
+    let allReviews = [];      // 儲存所有資料
+    let filteredReviews = []; // 儲存篩選後的資料
+    let currentPage = 1;      // 目前頁碼
+    let itemsPerPage = 10;    // 每頁筆數
+
+    // 解析 CSV，處理包含逗號與換行的複雜內容
+    function parseCSV(text) {
+        const lines = text.split(/\r?\n/);
+        const result = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.trim()) continue;
+            
+            // 正則表達式：正確切割 CSV 欄位（忽略引號內的逗號）
+            const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            
+            if (row.length >= 6) {
+                result.push({
+                    author: (row[2] || '').replace(/^"|"$/g, '').trim(),
+                    rating: parseInt(row[3]) || 0,
+                    content: (row[4] || '').replace(/^"|"$/g, '').replace(/""/g, '"').trim(),
+                    date: (row[5] || '').replace(/^"|"$/g, '').trim()
+                });
+            }
+        }
+        // 過濾掉沒有作者或評分的無效資料
+        return result.filter(r => r.author && r.rating);
+    }
+
+    // 渲染畫面（包含列表與分頁）
+    function render() {
         const resultsDiv = document.getElementById('results');
         const statsDiv = document.getElementById('stats');
+        const paginationDiv = document.getElementById('pagination');
         
-        if (data.length === 0) {
-            resultsDiv.innerHTML = '<div class="review-card">找不到符合的評論。</div>';
-            statsDiv.innerText = `找到 0 則評論`;
+        // 更新統計
+        statsDiv.innerText = `共找到 ${filteredReviews.length} 則評論`;
+
+        if (filteredReviews.length === 0) {
+            resultsDiv.innerHTML = '<div class="review-card" style="text-align:center;">找不到符合條件的評論。</div>';
+            paginationDiv.innerHTML = '';
             return;
         }
 
-        statsDiv.innerText = `找到 ${data.length} 則評論`;
-        resultsDiv.innerHTML = data.map(r => `
+        // 計算分頁
+        const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const currentData = filteredReviews.slice(startIndex, endIndex);
+
+        // 渲染評論列表
+        resultsDiv.innerHTML = currentData.map(r => `
             <div class="review-card">
                 <div class="review-header">
                     <span class="author">${r.author}</span>
@@ -153,14 +239,56 @@
                 <div class="content">${r.content}</div>
             </div>
         `).join('');
+
+        // 渲染分頁按鈕
+        renderPagination(totalPages);
     }
 
+    function renderPagination(totalPages) {
+        const paginationDiv = document.getElementById('pagination');
+        let html = '';
+
+        // 上一頁按鈕
+        html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">上一頁</button>`;
+
+        // 頁碼按鈕 (最多顯示前後各2頁)
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (startPage > 1) {
+            html += `<button class="page-btn" onclick="changePage(1)">1</button>`;
+            if (startPage > 2) html += `<span style="padding: 8px;">...</span>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += `<span style="padding: 8px;">...</span>`;
+            html += `<button class="page-btn" onclick="changePage(${totalPages})">${totalPages}</button>`;
+        }
+
+        // 下一頁按鈕
+        html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">下一頁</button>`;
+
+        paginationDiv.innerHTML = html;
+    }
+
+    // 變更頁碼
+    window.changePage = function(page) {
+        currentPage = page;
+        render();
+        // 點擊分頁後捲動回最上方
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     // 篩選邏輯
-    function filterData() {
+    function applyFilters() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         const ratingTerm = document.getElementById('ratingFilter').value;
 
-        const filtered = reviews.filter(r => {
+        filteredReviews = allReviews.filter(r => {
             const matchesSearch = r.content.toLowerCase().includes(searchTerm) || 
                                   r.author.toLowerCase().includes(searchTerm);
             const matchesRating = ratingTerm === 'all' || 
@@ -168,25 +296,38 @@
             return matchesSearch && matchesRating;
         });
 
-        renderReviews(filtered);
+        currentPage = 1; // 篩選後回到第一頁
+        render();
     }
 
-    // 初始化：抓取資料
-    fetch(csvUrl)
-        .then(response => response.text())
+    // 綁定事件
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
+    document.getElementById('ratingFilter').addEventListener('change', applyFilters);
+    document.getElementById('pageSize').addEventListener('change', (e) => {
+        itemsPerPage = parseInt(e.target.value);
+        currentPage = 1;
+        render();
+    });
+
+    // 初始化：載入資料
+    const fetchUrl = getCsvUrl(rawUrl);
+    
+    fetch(fetchUrl)
+        .then(response => {
+            if (!response.ok) throw new Error('網路回應錯誤');
+            return response.text();
+        })
         .then(text => {
-            reviews = parseCSV(text);
-            renderReviews(reviews);
-            
-            document.getElementById('searchInput').addEventListener('input', filterData);
-            document.getElementById('ratingFilter').addEventListener('change', filterData);
+            document.getElementById('loading').style.display = 'none';
+            allReviews = parseCSV(text);
+            filteredReviews = [...allReviews];
+            render();
         })
         .catch(err => {
-            document.getElementById('results').innerHTML = '資料載入失敗，請檢查 CSV 連結是否正確。';
+            document.getElementById('loading').innerHTML = '<span style="color:red;">資料載入失敗，請確認試算表權限是否設為「知道連結的人皆可檢視」。</span>';
             console.error(err);
         });
 </script>
 
 </body>
 </html>
-
