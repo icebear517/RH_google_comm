@@ -207,12 +207,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
             background-color: #fafafa;
         }
         #wordCloudCanvas {
             max-width: 100%;
-            height: auto;
             border-radius: 8px;
         }
         
@@ -289,7 +287,7 @@
     </div>
 
     <div id="tab-wordcloud" class="tab-content">
-        <div class="wordcloud-wrapper">
+        <div class="wordcloud-wrapper" id="wordcloud-container">
             <canvas id="wordCloudCanvas" width="800" height="500"></canvas>
         </div>
     </div>
@@ -318,8 +316,8 @@
 
         document.getElementById('pagination-controls').style.display = (tabId === 'tab-reviews') ? 'block' : 'none';
 
-        // 如果切換到文字雲，需要延遲一點點繪製，確保畫布已經顯示在畫面上
         if (tabId === 'tab-wordcloud') {
+            // 延遲一點點確保畫布已正確顯示，再進行繪製
             setTimeout(renderWordCloud, 100);
         }
     };
@@ -338,7 +336,6 @@
         cleaned = cleaned.replace(/"}$/, '');
         cleaned = cleaned.replace(/\\n/g, '\n');
         
-        // ★ 核心邏輯：如果清空後只剩下 {} 或 { }，回傳空字串，稍後會將其整筆刪除
         if (cleaned === '{}' || cleaned === '{ }' || cleaned.trim() === '') {
             return '';
         }
@@ -371,8 +368,6 @@
             const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             if (row.length >= 6) {
                 const cleanedContent = cleanReviewContent(row[4]);
-                
-                // ★ 如果這筆評論內容是空的或是 {}，就直接跳過不加入資料庫
                 if (!cleanedContent) continue;
 
                 const rawDate = (row[5] || '').replace(/^"|"$/g, '').trim();
@@ -390,7 +385,6 @@
     function renderAll() {
         renderList();
         renderDashboard();
-        // 文字雲在切換頁籤時才繪製，以節省效能與確保比例正確
         if (document.getElementById('tab-wordcloud').classList.contains('active')) {
             renderWordCloud();
         }
@@ -499,73 +493,122 @@
         });
     }
 
-    // ★ 全新專業級文字雲渲染引擎
+    // ★ 全新智慧型文字雲渲染引擎 (修正碎片化問題)
     function renderWordCloud() {
         if(filteredReviews.length === 0) return;
 
-        // 建立超大型「不要的字」字典（停用詞），確保不會出現無意義的代名詞和語助詞
+        // 擴充停用詞庫：徹底排除無意義的連接詞與代名詞
         const stopWords = new Set([
-            '的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','啊','喔','呢','吧','嗎','就是','一下','一些','一點','所以','如果','他們','什麼','地方','不錯'
+            '的','了','是','在','我','有','和','就','不','人','都','一個','我們','可以','這裡','覺得','非常','真的','很多','還是','因為','不過','雖然','但是','其實','看到','這樣','那個','怎麼','比較','而且','還有','這個','然後','太','也','很','這','去','會','說','想','到','用','再','能','把','被','給','來','做','看','好','與','為','讓','從','啊','喔','呢','吧','嗎','就是','一下','一些','一點','所以','如果','他們','什麼','地方','不錯','一樣','應該','沒有','起來','發現'
         ]);
 
-        let wordCounts = {};
+        // ★ 品牌詞典：保護這些重要詞彙不被切碎
+        const customDict = ['卡里善之樹', '為愛撐傘', '品牌行動看板', '概念館', '彩繪牆', '裝置藝術', '停車場', '北極宮', '彩虹屋'];
 
-        // 解析評論內容，尋找有意義的「雙字」與「三字」詞
+        let counts = {};
+
+        // 1. 文字擷取與長度分析 (2~5個字)
         filteredReviews.forEach(r => {
-            // 只保留中文字進行分析，避免標點符號干擾
-            const text = r.content.replace(/[^\u4e00-\u9fa5]/g, ''); 
+            let text = r.content.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ' '); 
+            let segments = text.split(/\s+/);
             
-            for (let i = 0; i < text.length - 1; i++) {
-                // 抓取雙字詞 (如: 雨傘、彩繪)
-                const biGram = text.substring(i, i + 2);
-                if (!stopWords.has(biGram)) {
-                    wordCounts[biGram] = (wordCounts[biGram] || 0) + 1;
+            segments.forEach(seg => {
+                // 先比對自訂詞典，確保重要品牌詞優先被記錄
+                customDict.forEach(dictWord => {
+                    if (seg.includes(dictWord)) {
+                        counts[dictWord] = (counts[dictWord] || 0) + 2; // 給予品牌詞較高初始權重
+                    }
+                });
+
+                // 產生 2 到 5 字的所有可能詞彙
+                for (let len = 5; len >= 2; len--) {
+                    for (let i = 0; i <= seg.length - len; i++) {
+                        let word = seg.substring(i, i + len);
+                        if (!stopWords.has(word)) {
+                            counts[word] = (counts[word] || 0) + 1;
+                        }
+                    }
                 }
-                
-                // 抓取三字詞 (如: 小精靈、概念館)
-                if (i < text.length - 2) {
-                    const triGram = text.substring(i, i + 3);
-                    if (!stopWords.has(triGram)) {
-                        wordCounts[triGram] = (wordCounts[triGram] || 0) + 1.5; // 三字詞權重稍微加強
+            });
+        });
+
+        // 2. 智慧子字串過濾 (Substring Pruning)
+        // 依照文字長度由長到短排序
+        let words = Object.keys(counts).sort((a, b) => b.length - a.length);
+
+        for (let i = 0; i < words.length; i++) {
+            let longerWord = words[i];
+            
+            // 忽略只出現 1 次的長詞雜訊
+            if (counts[longerWord] < 2) {
+                delete counts[longerWord]; 
+                continue;
+            }
+
+            // 尋找是否包含較短的詞 (例如: 找到「卡里善」，發現它包含在「卡里善之樹」裡)
+            for (let j = i + 1; j < words.length; j++) {
+                let shorterWord = words[j];
+                if (counts[shorterWord] > 0 && longerWord.includes(shorterWord)) {
+                    // 如果短詞出現的頻率沒有比長詞多出很多，代表它只是碎片，直接刪除
+                    if (counts[longerWord] >= counts[shorterWord] * 0.4) {
+                        counts[shorterWord] = 0;
+                    } else {
+                        // 否則，扣除它與長詞重疊的次數
+                        counts[shorterWord] -= counts[longerWord];
                     }
                 }
             }
-        });
+        }
 
-        // 轉換為 WordCloud2 需要的陣列格式，並只取前 60 名最常出現的詞
-        let sortedWords = Object.entries(wordCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 60);
+        // 3. 整理最終結果並過濾無效資料
+        let finalWords = [];
+        for (let word in counts) {
+            // 過濾掉次數歸零的碎片，以及首尾是停用詞的錯誤詞彙 (例如: "的雨傘")
+            if (counts[word] >= 2 && !stopWords.has(word[0]) && !stopWords.has(word[word.length-1])) {
+                finalWords.push([word, counts[word]]);
+            }
+        }
 
-        // 如果資料太少，就不執行
-        if (sortedWords.length === 0) return;
+        // 依據出現次數排序，只取前 60 名
+        finalWords.sort((a, b) => b[1] - a[1]);
+        let topWords = finalWords.slice(0, 60);
 
-        // 調整權重倍率，讓畫面上最大的字與最小的字有明顯落差
-        const maxWeight = sortedWords[0][1];
-        let cloudList = sortedWords.map(item => {
+        if (topWords.length === 0) return;
+
+        // ★ 4. 權重與字體大小映射 (提昇視覺對比度)
+        const maxWeight = topWords[0][1];
+        const minWeight = topWords[topWords.length - 1][1];
+
+        let cloudList = topWords.map(item => {
             let word = item[0];
             let weight = item[1];
-            // 基礎字體大小轉換公式
-            let calculatedSize = (weight / maxWeight) * 80 + 15; 
+            
+            // 公式：最常出現的字最大可以到 80px，最少的維持 15px
+            let calculatedSize = minWeight === maxWeight
+                ? 40
+                : 15 + ((weight - minWeight) / (maxWeight - minWeight)) * 65;
+            
             return [word, calculatedSize];
         });
 
-        // 呼叫 WordCloud2.js 進行畫布渲染
-        WordCloud(document.getElementById('wordCloudCanvas'), {
+        // 5. 執行真實文字雲繪製
+        const canvas = document.getElementById('wordCloudCanvas');
+        WordCloud(canvas, {
             list: cloudList,
             fontFamily: '"PingFang TC", "Microsoft JhengHei", sans-serif',
             fontWeight: 'bold',
             color: function() {
-                // 卡里善專屬彩虹配色隨機選取
+                // 卡里善品牌彩虹色系
                 const colors = ['#ff5e5e', '#ffa73a', '#fbbc04', '#62e552', '#4facfe', '#8c52ff', '#f06292', '#ba68c8', '#4db6ac'];
                 return colors[Math.floor(Math.random() * colors.length)];
             },
-            rotateRatio: 0.3,   // 30% 的字會旋轉
-            rotationSteps: 2,   // 旋轉的角度種類 (水平與垂直)
+            rotateRatio: 0.3,   // 有 30% 的字會轉為垂直，看起來更專業
+            rotationSteps: 2,
             backgroundColor: 'transparent',
-            shape: 'circle',    // 雲的形狀偏向圓形集中
-            gridSize: 8,        // 字與字之間的緊密度
-            drawOutOfBound: false
+            shape: 'circle',
+            gridSize: Math.round(12 * document.getElementById('wordcloud-container').offsetWidth / 800), // 自動適應縮放
+            drawOutOfBound: false,
+            shrinkToFit: true
         });
     }
 
